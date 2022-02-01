@@ -1,10 +1,6 @@
 package main
 
 import (
-	"github.com/bwmarrin/discordgo"
-	"github.com/joho/godotenv"
-	"github.com/replit/database-go"
-	functions "github.com/zLeki/PointBot/helpers"
 	"log"
 	"os"
 	"os/signal"
@@ -12,6 +8,11 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
+	"github.com/replit/database-go"
+	functions "github.com/zLeki/PointBot/helpers"
 )
 
 type Config struct {
@@ -74,7 +75,7 @@ func main() {
 	}(dg)
 }
 
-func (c *Config) Error(s *discordgo.Session, reason string, ChannelID string) {
+func (c *Config) Error(s *discordgo.Session, reason, ChannelID string) {
 	embed, err := s.ChannelMessageSendEmbed(ChannelID, functions.EmbedCreate("Error", reason, "https://i.imgur.com/qs4QOjF.png"))
 	if err != nil {
 		return
