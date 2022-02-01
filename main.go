@@ -44,7 +44,7 @@ func main() {
 	c.Debug, _ = strconv.ParseBool(os.Getenv("DEBUG"))
 	c.AdminChan = os.Getenv("OMNICHANNEL")
 	c.Prefix = os.Getenv("PREFIX")
-	infoLog, errorLog := c.startLoggers()
+	infoLog, errorLog := startLoggers()
 	c.Errorlog = errorLog
 	c.Infolog = infoLog
 	if c.Debug {
@@ -65,7 +65,7 @@ func main() {
 		c.Errorlog.Fatalf("Error opening connection: %s", err)
 	}
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-ch
 	defer func(dg *discordgo.Session) {
 		err := dg.Close()
@@ -85,7 +85,7 @@ func (c *Config) Error(s *discordgo.Session, reason, ChannelID string) {
 	}
 
 }
-func (c *Config) OnReady(s *discordgo.Session, event *discordgo.Ready) {
+func (c *Config) OnReady(s *discordgo.Session, _ *discordgo.Ready) {
 	err := os.Setenv("NAME", s.State.User.Username)
 	if err != nil {
 		return
@@ -97,7 +97,7 @@ func (c *Config) OnReady(s *discordgo.Session, event *discordgo.Ready) {
 		return
 	}
 }
-func (c *Config) checkStat(s *discordgo.Session, userID string, parm1 int, channelID string) (id string, total int) {
+func (c *Config) checkStat(s *discordgo.Session, userID string, channelID string) (id string, total int) {
 	keys, err := database.ListKeys("")
 	if c.Debug {
 		c.Infolog.Println("Keys:", keys)
@@ -196,7 +196,7 @@ func (c *Config) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate)
 			if c.Debug {
 				c.Infolog.Println(parms[0], vale, m.ChannelID)
 			}
-			c.checkStat(s, parms[0], vale, m.ChannelID)
+			c.checkStat(s, parms[0], m.ChannelID)
 
 		}
 		type user struct {
@@ -245,7 +245,7 @@ func (c *Config) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate)
 		}
 		//_ = nil
 	} else if m.Content == c.Prefix+"points" {
-		_, points := c.checkStat(s, m.Author.ID, 0, m.ChannelID)
+		_, points := c.checkStat(s, m.Author.ID, m.ChannelID)
 		_, err := s.ChannelMessageSendEmbed(m.ChannelID, functions.EmbedCreate("Points", "You have "+strconv.Itoa(points)+" points", "https://i.imgur.com/NldSwaZ.png"))
 		if err != nil {
 			c.Error(s, "Error sending message: "+err.Error(), m.ChannelID)
@@ -261,10 +261,9 @@ func (c *Config) OnReaction(s *discordgo.Session, r *discordgo.MessageReactionAd
 	if r.ChannelID == c.AdminChan {
 
 		if r.Emoji.Name == "✅" {
-			switch len(cache) {
-			case 0:
+			if len(cache) == 0 {
 				c.Errorlog.Println("No users in cache")
-
+				c.Error(s, "No users in cache", r.ChannelID)
 			}
 			for _, v := range cache {
 
@@ -276,15 +275,19 @@ func (c *Config) OnReaction(s *discordgo.Session, r *discordgo.MessageReactionAd
 					return
 				}
 				_, err = s.ChannelMessageSend(usrChan.ID, "User, <@!"+r.UserID+"> has approved the request for "+points[1]+" points.")
-				err = database.Set(v, points[1])
-				if err != nil {
-					return
-				}
+
 				if err != nil {
 					c.Error(s, err.Error(), r.ChannelID)
 					c.Errorlog.Println("Error sending message: ", err)
 					return
 				}
+				err = database.Set(v, points[1])
+				if err != nil {
+					c.Error(s, "Error sending to database: ", err.Error())
+					c.Errorlog.Println("Error setting up database: ", err)
+					return
+				}
+
 				if c.Debug {
 					c.Infolog.Println("Set database")
 				}
@@ -293,7 +296,10 @@ func (c *Config) OnReaction(s *discordgo.Session, r *discordgo.MessageReactionAd
 			cache = nil
 
 		} else if r.Emoji.Name == "❎" {
-
+			if len(cache) == 0 {
+				c.Errorlog.Println("No users in cache")
+				c.Error(s, "No users in cache", r.ChannelID)
+			}
 			for _, v := range cache {
 				channel := strings.Split(v, ":")[0]
 				usrChan, err := s.UserChannelCreate(channel)
@@ -311,9 +317,8 @@ func (c *Config) OnReaction(s *discordgo.Session, r *discordgo.MessageReactionAd
 					c.Errorlog.Println("Error sending message: ", err)
 					return
 				}
-				return
-
 			}
+
 			c.Error(s, "No users in cache", r.ChannelID)
 
 		}
@@ -337,7 +342,7 @@ func contains(s []string, str string) bool {
 	return false
 }
 
-func (c *Config) startLoggers() (*log.Logger, *log.Logger) {
+func startLoggers() (*log.Logger, *log.Logger) {
 	errorLog := log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 	infoLog := log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 	return infoLog, errorLog
