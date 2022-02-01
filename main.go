@@ -97,7 +97,7 @@ func (c *Config) OnReady(s *discordgo.Session, _ *discordgo.Ready) {
 		return
 	}
 }
-func (c *Config) checkStat(s *discordgo.Session, userID string, channelID string) (id string, total int) {
+func (c *Config) checkStat(s *discordgo.Session, userID, channelID string) (id string, total int) {
 	keys, err := database.ListKeys("")
 	if c.Debug {
 		c.Infolog.Println("Keys:", keys)
