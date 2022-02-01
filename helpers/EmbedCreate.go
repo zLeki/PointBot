@@ -1,12 +1,13 @@
 package functions
 
 import (
-	"github.com/bwmarrin/discordgo"
 	"os"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
 )
 
-func EmbedCreate(title string, description string, thumbnail string) *discordgo.MessageEmbed {
+func EmbedCreate(title, description, thumbnail string) *discordgo.MessageEmbed {
 	embed := &discordgo.MessageEmbed{
 		Fields: []*discordgo.MessageEmbedField{&discordgo.MessageEmbedField{
 			Name:   os.Getenv("NAME"),
